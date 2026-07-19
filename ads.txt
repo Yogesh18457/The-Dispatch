@@ -1,0 +1,8 @@
+# Once your AdSense application is approved, Google will give you a
+# publisher ID that looks like: pub-1234567890123456
+#
+# Replace the line below with your real ID, keep this file named
+# "ads.txt", and keep it in the root of your site (same folder as
+# index.html). This is required for AdSense to serve ads properly.
+
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0

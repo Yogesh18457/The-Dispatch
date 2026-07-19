@@ -1,0 +1,11 @@
+[
+  {
+    "id": "welcome-post-001",
+    "title": "Welcome to The Dispatch",
+    "category": "News",
+    "author": "The Editors",
+    "content": "This is your first dispatch. Replace or delete this post using the \"File a dispatch\" button on the site, then download the updated posts.json and upload it to your GitHub repository to publish changes to everyone who visits your site.\n\nEvery article you publish lives in this file — posts.json — as a simple list. Editing this file (either through the site's built-in editor or directly on GitHub) is how you keep your site updated.",
+    "sourceUrl": "",
+    "date": "2026-07-19T00:00:00.000Z"
+  }
+]

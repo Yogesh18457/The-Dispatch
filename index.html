@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Dispatch — News & Research</title>
+<meta name="description" content="Field reports and researched dispatches on news, research, and analysis.">
+
+<!-- ================================================================
+     GOOGLE ADSENSE
+     After you're approved, Google will give you a snippet like:
+     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+     Paste it here, right before </head>. Also create an ads.txt file
+     (a template is included in this package) with your publisher ID.
+     ================================================================ -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --paper:#F2F0E7;
+    --paper-raised:#FBFAF5;
+    --ink:#1B1A17;
+    --rule:#D6D0C0;
+    --wire:#2E4B6B;
+    --wire-dim:#4C6C8F;
+    --brick:#A83E2C;
+    --mute:#7A7364;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100%;
+    line-height:1.5;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px;}
+  a{color:var(--wire);}
+
+  .site-nav{
+    display:flex;justify-content:center;gap:20px;padding:12px 20px;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    border-bottom:1px solid var(--rule);
+  }
+  .site-nav a{color:var(--mute);text-decoration:none;}
+  .site-nav a:hover{color:var(--wire);}
+
+  .masthead{padding:36px 20px 18px;text-align:center;border-bottom:3px solid var(--ink);}
+  .masthead .kicker{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);
+    margin-bottom:10px;
+  }
+  .masthead h1{
+    font-family:'Fraunces',serif;font-weight:900;font-optical-sizing:auto;
+    font-size:clamp(38px,7vw,64px);margin:0;letter-spacing:-.01em;line-height:.95;
+  }
+  .masthead .tagline{
+    font-family:'Fraunces',serif;font-style:italic;font-weight:400;
+    color:var(--mute);font-size:15px;margin-top:8px;
+  }
+  .masthead .meta-row{
+    display:flex;justify-content:center;gap:18px;margin-top:14px;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mute);
+    letter-spacing:.04em;flex-wrap:wrap;
+  }
+
+  .ticker{background:var(--ink);color:var(--paper-raised);overflow:hidden;white-space:nowrap;position:relative;}
+  .ticker-inner{display:inline-flex;padding:9px 0;animation:scroll 28s linear infinite;}
+  .ticker:hover .ticker-inner{animation-play-state:paused;}
+  .ticker-item{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.03em;
+    padding:0 28px;display:flex;align-items:center;gap:10px;white-space:nowrap;
+  }
+  .ticker-item::before{content:'●';color:var(--brick);font-size:8px;}
+  @keyframes scroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+  .controls{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:12px;flex-wrap:wrap;padding:22px 20px 8px;max-width:760px;margin:0 auto;
+  }
+  .chips{display:flex;gap:8px;flex-wrap:wrap;}
+  .chip{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+    padding:6px 12px;border-radius:999px;border:1px solid var(--rule);
+    background:var(--paper-raised);cursor:pointer;color:var(--mute);transition:all .15s ease;
+  }
+  .chip:hover{border-color:var(--wire);color:var(--wire);}
+  .chip.active{background:var(--ink);border-color:var(--ink);color:var(--paper-raised);}
+
+  .new-btn{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.04em;
+    background:var(--brick);color:var(--paper-raised);border:none;
+    padding:9px 16px;border-radius:6px;cursor:pointer;font-weight:500;
+    transition:transform .12s ease, box-shadow .12s ease;white-space:nowrap;
+  }
+  .new-btn:hover{transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,.15);}
+  .new-btn:focus-visible,.chip:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{
+    outline:2px solid var(--wire);outline-offset:2px;
+  }
+
+  .form-panel{max-width:760px;margin:14px auto 0;padding:0 20px;max-height:0;overflow:hidden;transition:max-height .3s ease;}
+  .form-panel.open{max-height:1000px;}
+  .form-card{background:var(--paper-raised);border:1px solid var(--rule);border-radius:10px;padding:22px;margin-top:6px;}
+  .form-card .hint{
+    font-family:'Inter',sans-serif;font-size:12.5px;color:var(--mute);
+    background:var(--paper);border-radius:6px;padding:10px 12px;margin-bottom:16px;line-height:1.5;
+  }
+  .form-card label{
+    display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+    letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:14px 0 6px;
+  }
+  .form-card label:first-of-type{margin-top:0;}
+  .form-card input[type=text],.form-card textarea,.form-card select{
+    width:100%;font-family:'Inter',sans-serif;font-size:14px;
+    border:1px solid var(--rule);border-radius:6px;padding:10px 12px;background:#fff;color:var(--ink);
+  }
+  .form-card textarea{min-height:140px;resize:vertical;line-height:1.55;}
+  .form-row{display:flex;gap:14px;}
+  .form-row > div{flex:1;}
+  .form-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end;flex-wrap:wrap;}
+  .btn-secondary{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;background:none;
+    border:1px solid var(--rule);color:var(--mute);padding:9px 16px;border-radius:6px;cursor:pointer;
+  }
+  .btn-secondary:hover{border-color:var(--ink);color:var(--ink);}
+  .btn-primary{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--wire);
+    border:none;color:#fff;padding:9px 18px;border-radius:6px;cursor:pointer;font-weight:500;
+  }
+  .btn-primary:hover{background:var(--wire-dim);}
+  .form-error{color:var(--brick);font-size:12px;font-family:'IBM Plex Mono',monospace;margin-top:10px;}
+  .form-success{color:#2F6B3F;font-size:12px;font-family:'IBM Plex Mono',monospace;margin-top:10px;line-height:1.5;}
+
+  .feed{padding-top:18px;padding-bottom:60px;}
+  .card{
+    background:var(--paper-raised);border:1px solid var(--rule);border-radius:10px;
+    padding:22px 24px;margin:16px auto;max-width:720px;position:relative;
+  }
+  .stamp{
+    display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;
+    letter-spacing:.09em;text-transform:uppercase;padding:4px 10px;border-radius:4px;
+    border:1.5px solid var(--wire);color:var(--wire);transform:rotate(-2deg);margin-bottom:12px;font-weight:500;
+  }
+  .card.cat-research .stamp{border-color:var(--brick);color:var(--brick);}
+  .card h2{font-family:'Fraunces',serif;font-weight:600;font-size:23px;margin:0 0 8px;line-height:1.2;}
+  .byline{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mute);margin-bottom:14px;letter-spacing:.02em;}
+  .content{font-family:'Fraunces',serif;font-size:16px;line-height:1.65;color:#2B2A26;white-space:pre-wrap;}
+  .content.collapsed{
+    max-height:88px;overflow:hidden;position:relative;
+    -webkit-mask-image:linear-gradient(to bottom, black 55%, transparent 100%);
+            mask-image:linear-gradient(to bottom, black 55%, transparent 100%);
+  }
+  .source-link{display:inline-block;margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--wire);text-decoration:none;border-bottom:1px solid var(--wire-dim);}
+  .card-footer{display:flex;justify-content:space-between;align-items:center;margin-top:16px;border-top:1px solid var(--rule);padding-top:12px;}
+  .read-more{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--wire);background:none;border:none;cursor:pointer;padding:0;letter-spacing:.03em;}
+  .delete-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mute);background:none;border:none;cursor:pointer;letter-spacing:.03em;}
+  .delete-btn:hover{color:var(--brick);}
+
+  .empty,.loading{max-width:520px;margin:60px auto;text-align:center;padding:0 20px;color:var(--mute);}
+  .empty h3,.loading h3{font-family:'Fraunces',serif;font-size:22px;color:var(--ink);margin-bottom:10px;font-weight:600;}
+  .empty p,.loading p{font-size:14px;}
+
+  .site-footer{
+    text-align:center;padding:30px 20px;font-family:'IBM Plex Mono',monospace;
+    font-size:11px;color:var(--mute);border-top:1px solid var(--rule);
+  }
+  .site-footer a{color:var(--mute);}
+
+  @media (max-width:480px){
+    .card{margin:14px 12px;padding:18px;}
+    .controls{padding:20px 14px 6px;}
+    .masthead{padding:28px 14px 16px;}
+  }
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="index.html">Dispatches</a>
+  <a href="about.html">About</a>
+  <a href="privacy-policy.html">Privacy Policy</a>
+</nav>
+
+<div class="masthead">
+  <div class="kicker" id="issue-kicker">Loading —</div>
+  <h1>THE DISPATCH</h1>
+  <div class="tagline">Field reports &amp; researched dispatches, filed as they happen</div>
+  <div class="meta-row">
+    <span id="meta-date"></span>
+    <span>·</span>
+    <span id="meta-count">0 dispatches</span>
+  </div>
+</div>
+
+<div class="ticker"><div class="ticker-inner" id="ticker-inner"></div></div>
+
+<div class="controls">
+  <div class="chips" id="chips"></div>
+  <button class="new-btn" id="new-btn">+ File a dispatch</button>
+</div>
+
+<div class="form-panel" id="form-panel">
+  <div class="form-card">
+    <div class="hint">This site is static, so new posts publish in two steps: fill this out, then click "Add &amp; download posts.json." That downloads an updated file — upload it to your GitHub repo (replacing the old one) to make it live for visitors.</div>
+
+    <label for="f-title">Headline</label>
+    <input type="text" id="f-title" placeholder="What happened, in one line">
+
+    <div class="form-row">
+      <div>
+        <label for="f-category">Category</label>
+        <select id="f-category">
+          <option>News</option>
+          <option>Research</option>
+          <option>Analysis</option>
+          <option>Opinion</option>
+        </select>
+      </div>
+      <div>
+        <label for="f-author">Byline</label>
+        <input type="text" id="f-author" placeholder="Your name">
+      </div>
+    </div>
+
+    <label for="f-content">Report</label>
+    <textarea id="f-content" placeholder="Write the full report here..."></textarea>
+
+    <label for="f-source">Source link (optional)</label>
+    <input type="text" id="f-source" placeholder="https://...">
+
+    <div id="f-error" class="form-error" style="display:none;"></div>
+    <div id="f-success" class="form-success" style="display:none;"></div>
+
+    <div class="form-actions">
+      <button class="btn-secondary" id="cancel-btn">Cancel</button>
+      <button class="btn-primary" id="save-btn">Add &amp; download posts.json</button>
+    </div>
+  </div>
+</div>
+
+<div class="feed" id="feed"></div>
+
+<footer class="site-footer">
+  The Dispatch · <a href="about.html">About</a> · <a href="privacy-policy.html">Privacy Policy</a>
+</footer>
+
+<script>
+(function(){
+  let posts = [];
+  let activeFilter = 'All';
+  let loaded = false;
+
+  const feedEl = document.getElementById('feed');
+  const chipsEl = document.getElementById('chips');
+  const tickerEl = document.getElementById('ticker-inner');
+  const metaDate = document.getElementById('meta-date');
+  const metaCount = document.getElementById('meta-count');
+  const issueKicker = document.getElementById('issue-kicker');
+  const formPanel = document.getElementById('form-panel');
+  const newBtn = document.getElementById('new-btn');
+  const cancelBtn = document.getElementById('cancel-btn');
+  const saveBtn = document.getElementById('save-btn');
+  const errEl = document.getElementById('f-error');
+  const successEl = document.getElementById('f-success');
+
+  const today = new Date();
+  metaDate.textContent = today.toLocaleDateString(undefined,{weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function categorySlug(cat){ return 'cat-' + (cat||'news').toLowerCase(); }
+
+  async function loadPosts(){
+    feedEl.innerHTML = '<div class="loading"><h3>Unlocking the archive…</h3><p>Fetching dispatches.</p></div>';
+    try{
+      const res = await fetch('posts.json', {cache:'no-store'});
+      posts = await res.json();
+      if(!Array.isArray(posts)) posts = [];
+    }catch(e){
+      posts = [];
+    }
+    loaded = true;
+    render();
+  }
+
+  function downloadPostsJson(){
+    const blob = new Blob([JSON.stringify(posts, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'posts.json'; document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function render(){
+    issueKicker.textContent = 'Issue No. ' + String(posts.length).padStart(3,'0');
+    metaCount.textContent = posts.length + (posts.length === 1 ? ' dispatch' : ' dispatches');
+
+    if(posts.length === 0){
+      tickerEl.innerHTML = '<span class="ticker-item">AWAITING FIRST DISPATCH</span>';
+    } else {
+      const headlines = posts.slice().reverse().map(p => `<span class="ticker-item">${escapeHtml((p.category||'').toUpperCase())}: ${escapeHtml(p.title)}</span>`).join('');
+      tickerEl.innerHTML = headlines + headlines;
+    }
+
+    const cats = ['All', ...Array.from(new Set(posts.map(p => p.category)))];
+    chipsEl.innerHTML = cats.map(c =>
+      `<button class="chip ${c===activeFilter?'active':''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`
+    ).join('');
+    chipsEl.querySelectorAll('.chip').forEach(btn => {
+      btn.addEventListener('click', () => { activeFilter = btn.dataset.cat; render(); });
+    });
+
+    const visible = posts.filter(p => activeFilter === 'All' || p.category === activeFilter).slice().reverse();
+    if(!loaded) return;
+
+    if(posts.length === 0){
+      feedEl.innerHTML = `<div class="empty"><h3>The wire is quiet</h3><p>No dispatches yet. File one above.</p></div>`;
+      return;
+    }
+    if(visible.length === 0){
+      feedEl.innerHTML = `<div class="empty"><h3>Nothing under "${escapeHtml(activeFilter)}"</h3><p>Try another category.</p></div>`;
+      return;
+    }
+
+    feedEl.innerHTML = visible.map(p => {
+      const dateStr = new Date(p.date).toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'});
+      const sourceHtml = p.sourceUrl ? `<br><a class="source-link" href="${escapeHtml(p.sourceUrl)}" target="_blank" rel="noopener">Source ↗</a>` : '';
+      return `
+        <div class="card ${categorySlug(p.category)}" data-id="${p.id}">
+          <span class="stamp">${escapeHtml(p.category)}</span>
+          <h2>${escapeHtml(p.title)}</h2>
+          <div class="byline">By ${escapeHtml(p.author || 'Staff')} · ${dateStr}</div>
+          <div class="content collapsed" id="content-${p.id}">${escapeHtml(p.content)}${sourceHtml}</div>
+          <div class="card-footer">
+            <button class="read-more" data-id="${p.id}">Read full report ↓</button>
+            <button class="delete-btn" data-id="${p.id}">Remove</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    feedEl.querySelectorAll('.read-more').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const el = document.getElementById('content-' + btn.dataset.id);
+        const collapsed = el.classList.toggle('collapsed');
+        btn.textContent = collapsed ? 'Read full report ↓' : 'Collapse ↑';
+      });
+    });
+    feedEl.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if(!confirm('Remove this dispatch from the local list? Download posts.json again afterward to publish the removal.')) return;
+        posts = posts.filter(p => String(p.id) !== String(btn.dataset.id));
+        render();
+      });
+    });
+  }
+
+  newBtn.addEventListener('click', () => {
+    formPanel.classList.add('open');
+    document.getElementById('f-title').focus();
+  });
+  cancelBtn.addEventListener('click', () => { formPanel.classList.remove('open'); clearForm(); });
+
+  function clearForm(){
+    document.getElementById('f-title').value = '';
+    document.getElementById('f-author').value = '';
+    document.getElementById('f-content').value = '';
+    document.getElementById('f-source').value = '';
+    document.getElementById('f-category').selectedIndex = 0;
+    errEl.style.display = 'none';
+    successEl.style.display = 'none';
+  }
+
+  saveBtn.addEventListener('click', () => {
+    const title = document.getElementById('f-title').value.trim();
+    const category = document.getElementById('f-category').value;
+    const author = document.getElementById('f-author').value.trim();
+    const content = document.getElementById('f-content').value.trim();
+    const sourceUrl = document.getElementById('f-source').value.trim();
+
+    errEl.style.display = 'none';
+    successEl.style.display = 'none';
+
+    if(!title || !content){
+      errEl.textContent = 'A headline and the report text are required.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    posts.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+      title, category, author, content, sourceUrl,
+      date: new Date().toISOString()
+    });
+
+    downloadPostsJson();
+    successEl.textContent = 'Downloaded posts.json. Upload it to your GitHub repo (replace the existing file) and commit to publish this on your live site.';
+    successEl.style.display = 'block';
+    activeFilter = 'All';
+    render();
+  });
+
+  loadPosts();
+})();
+</script>
+</body>
+</html>
