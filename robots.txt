@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /post-1.html
+Allow: /post-2.html
+Allow: /post-3.html
+Allow: /post-4.html
+Allow: /sitemap.xml
+
+Disallow: /admin.html
+
+Sitemap: https://yogesh18457.github.io/sitemap.xml
