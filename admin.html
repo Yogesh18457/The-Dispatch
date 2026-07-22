@@ -258,39 +258,296 @@
     loadGitHubSettings();
   });
 
-  // Reads posts.json's current SHA + content directly from GitHub (not the
-  // live site's cached copy), then writes an updated version back — this
-  // avoids clobbering a post someone else added moments earlier.
-  async function githubGetFile(){
+  // Generic GitHub file read/write — works for posts.json, index.html,
+  // sitemap.xml, or new post-N.html pages. Always reads fresh from GitHub
+  // right before writing, to avoid clobbering something changed elsewhere.
+  async function githubGetRaw(path){
     const gh = getGh();
-    const res = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/posts.json`, {
+    const res = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${path}`, {
       headers: { Authorization: `token ${gh.token}` }
     });
-    if(!res.ok) throw new Error('Could not read posts.json from GitHub (' + res.status + ')');
+    if(res.status === 404) return { sha: null, text: null };
+    if(!res.ok) throw new Error(`Could not read ${path} from GitHub (${res.status})`);
     const data = await res.json();
-    const content = JSON.parse(decodeURIComponent(escape(atob(data.content))));
-    return { sha: data.sha, content: Array.isArray(content) ? content : [] };
+    const text = decodeURIComponent(escape(atob(data.content)));
+    return { sha: data.sha, text };
   }
 
-  async function githubPutFile(newPosts, sha){
+  async function githubPutRaw(path, text, sha, message){
     const gh = getGh();
     const body = {
-      message: 'Update posts.json via admin panel',
-      content: btoa(unescape(encodeURIComponent(JSON.stringify(newPosts, null, 2)))),
-      sha: sha
+      message: message || ('Update ' + path + ' via admin panel'),
+      content: btoa(unescape(encodeURIComponent(text)))
     };
-    const res = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/posts.json`, {
+    if(sha) body.sha = sha;
+    const res = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${path}`, {
       method: 'PUT',
       headers: { Authorization: `token ${gh.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
     if(!res.ok){
       const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.message || ('GitHub rejected the update (' + res.status + ')'));
+      throw new Error(errBody.message || (`GitHub rejected the update to ${path} (${res.status})`));
     }
     return true;
   }
 
+  async function githubGetFile(){
+    const { sha, text } = await githubGetRaw('posts.json');
+    const content = text ? JSON.parse(text) : [];
+    return { sha, content: Array.isArray(content) ? content : [] };
+  }
+
+  async function githubPutFile(newPosts, sha){
+    return githubPutRaw('posts.json', JSON.stringify(newPosts, null, 2), sha, 'Update posts.json via admin panel');
+  }
+
+  // --- Site generation: keeps index.html, individual post pages, and
+  // sitemap.xml all in sync with whatever is in posts.json ---
+
+  function assignPageFilenames(allPosts){
+    let maxN = 0;
+    allPosts.forEach(p => {
+      if(p.page){
+        const m = /^post-(\d+)\.html$/.exec(p.page);
+        if(m) maxN = Math.max(maxN, parseInt(m[1], 10));
+      }
+    });
+    allPosts.forEach((p, i) => {
+      if(!p.page){
+        maxN += 1;
+        p.page = `post-${maxN}.html`;
+      }
+    });
+    return allPosts;
+  }
+
+  function categoryClass(cat){
+    const known = ['news','tech','research','sports'];
+    const c = (cat||'news').toLowerCase();
+    return known.includes(c) ? c : '';
+  }
+
+  function excerpt(text, len){
+    const clean = (text||'').replace(/\s+/g,' ').trim();
+    return clean.length > len ? clean.slice(0, len).replace(/\s+\S*$/, '') + '…' : clean;
+  }
+
+  function buildPostPageHtml(post){
+    const dateStr = new Date(post.date).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+    const desc = excerpt(post.content, 155);
+    const imageHtml = post.image ? `<img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.title)}" style="width:100%;height:auto;border-radius:8px;margin-bottom:20px;">` : '';
+    const sourceHtml = post.sourceUrl ? `<p style="margin-top:24px;"><a href="${escapeHtml(post.sourceUrl)}" target="_blank" rel="noopener">Source ↗</a></p>` : '';
+    const bodyHtml = escapeHtml(post.content).split('\n\n').map(p => `<p>${p}</p>`).join('\n');
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(post.title)} — The Speech Dispatch</title>
+<meta name="description" content="${escapeHtml(desc)}">
+<meta name="keywords" content="${escapeHtml(post.category)}, news, India, ${escapeHtml(post.title.split(' ').slice(0,4).join(', '))}">
+<meta name="author" content="${escapeHtml(post.author || 'Yogesh')}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://yogesh18457.github.io/${post.page}">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="${escapeHtml(post.title)}">
+<meta property="og:description" content="${escapeHtml(desc)}">
+<meta property="og:url" content="https://yogesh18457.github.io/${post.page}">
+<meta property="og:site_name" content="The Speech Dispatch">
+${post.image ? `<meta property="og:image" content="${escapeHtml(post.image)}">` : ''}
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escapeHtml(post.title)}">
+<meta name="twitter:description" content="${escapeHtml(desc)}">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": ${JSON.stringify(post.title)},
+  "datePublished": ${JSON.stringify(post.date)},
+  "dateModified": ${JSON.stringify(post.date)},
+  "author": {"@type": "Person", "name": ${JSON.stringify(post.author || 'Yogesh')}},
+  "publisher": {"@type": "Organization", "name": "The Speech Dispatch"},
+  "description": ${JSON.stringify(desc)}
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2614925655714790" crossorigin="anonymous"></script>
+
+<style>
+  :root{--paper:#F2F0E7;--paper-raised:#FBFAF5;--ink:#1B1A17;--rule:#D6D0C0;--wire:#2E4B6B;--wire-dim:#4C6C8F;--brick:#A83E2C;--mute:#7A7364;}
+  *{box-sizing:border-box;} html,body{margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;min-height:100vh;line-height:1.6;}
+  a{color:var(--wire);}
+  .site-nav{display:flex;justify-content:center;gap:20px;padding:12px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--rule);background:var(--paper-raised);}
+  .site-nav a{color:var(--mute);text-decoration:none;}
+  .site-nav a:hover{color:var(--wire);}
+  .header{background:var(--ink);color:var(--paper-raised);padding:32px 20px;text-align:center;}
+  .header a{color:var(--rule);font-family:'IBM Plex Mono',monospace;font-size:11px;text-decoration:none;}
+  .article-wrap{max-width:680px;margin:0 auto;padding:40px 20px 70px;}
+  .category-badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:4px;border:1px solid var(--wire);color:var(--wire);margin-bottom:16px;font-weight:500;}
+  .category-badge.news{border-color:var(--brick);color:var(--brick);}
+  .category-badge.tech{border-color:#2E5266;color:#2E5266;}
+  .category-badge.research{border-color:#666;color:#666;}
+  .category-badge.sports{border-color:#5C3D2E;color:#5C3D2E;}
+  h1{font-family:'Fraunces',serif;font-weight:700;font-size:clamp(26px,5vw,38px);line-height:1.2;margin:0 0 14px;}
+  .meta{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--mute);margin-bottom:28px;}
+  .article-body{font-family:'Fraunces',serif;font-size:17px;line-height:1.7;color:#2B2A26;}
+  .article-body p{margin:0 0 20px;}
+  .footer{background:var(--ink);color:var(--paper-raised);text-align:center;padding:30px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;border-top:1px solid var(--rule);margin-top:40px;}
+  .footer a{color:var(--paper-raised);}
+</style>
+</head>
+<body>
+<nav class="site-nav">
+  <a href="index.html">Home</a>
+  <a href="about.html">About</a>
+  <a href="privacy-policy.html">Privacy Policy</a>
+</nav>
+<header class="header">
+  <a href="index.html">← THE SPEECH DISPATCH</a>
+</header>
+<main class="article-wrap">
+  <span class="category-badge ${categoryClass(post.category)}">${escapeHtml(post.category)}</span>
+  ${imageHtml}
+  <h1>${escapeHtml(post.title)}</h1>
+  <div class="meta">By ${escapeHtml(post.author || 'Yogesh')} · ${dateStr}</div>
+  <div class="article-body">${bodyHtml}</div>
+  ${sourceHtml}
+</main>
+<footer class="footer">
+  <p>The Speech Dispatch © 2026 · <a href="about.html">About</a> · <a href="privacy-policy.html">Privacy Policy</a></p>
+</footer>
+</body>
+</html>`;
+  }
+
+  function buildIndexHtml(allPosts){
+    const cards = allPosts.slice().reverse().map(p => {
+      const dateStr = new Date(p.date).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+      return `    <article class="article-card">
+      <span class="category-badge ${categoryClass(p.category)}">${escapeHtml(p.category)}</span>
+      <h2>${escapeHtml(p.title)}</h2>
+      <div class="article-meta">By ${escapeHtml(p.author || 'Yogesh')} · ${dateStr}</div>
+      <p class="article-desc">${escapeHtml(excerpt(p.content, 180))}</p>
+      <a href="${p.page}" class="read-more-btn">Read Full Article →</a>
+    </article>`;
+    }).join('\n\n');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Speech Dispatch — News, Research & Analysis</title>
+<meta name="description" content="The Speech Dispatch brings you the latest news, research, and analysis.">
+<meta name="keywords" content="news, research, analysis, India news, technology, sports">
+<meta name="author" content="Yogesh">
+<meta name="robots" content="index, follow">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="The Speech Dispatch — News & Research">
+<meta property="og:description" content="Field reports and researched dispatches on news, research, and analysis.">
+<meta property="og:url" content="https://yogesh18457.github.io/">
+<meta property="og:site_name" content="The Speech Dispatch">
+
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2614925655714790" crossorigin="anonymous"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root{--paper:#F2F0E7;--paper-raised:#FBFAF5;--ink:#1B1A17;--rule:#D6D0C0;--wire:#2E4B6B;--wire-dim:#4C6C8F;--brick:#A83E2C;--mute:#7A7364;}
+  *{box-sizing:border-box;} html,body{margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;min-height:100vh;line-height:1.6;}
+  a{color:var(--wire);text-decoration:none;} a:hover{text-decoration:underline;}
+  .site-nav{display:flex;justify-content:center;gap:20px;padding:12px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--rule);background:var(--paper-raised);}
+  .site-nav a{color:var(--mute);text-decoration:none;} .site-nav a:hover{color:var(--wire);text-decoration:none;}
+  .header{background:var(--ink);color:var(--paper-raised);padding:40px 20px;text-align:center;}
+  .header h1{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(32px,8vw,56px);margin:0 0 10px;letter-spacing:-0.01em;line-height:1.1;}
+  .header .tagline{font-family:'Fraunces',serif;font-style:italic;font-size:16px;color:var(--rule);margin:0;}
+  .container{max-width:900px;margin:0 auto;padding:40px 20px;}
+  .section-title{font-family:'Fraunces',serif;font-weight:700;font-size:28px;margin:40px 0 20px;color:var(--ink);border-bottom:2px solid var(--rule);padding-bottom:12px;}
+  .articles-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-bottom:40px;}
+  .article-card{background:var(--paper-raised);border:1px solid var(--rule);border-radius:8px;padding:20px;display:flex;flex-direction:column;transition:all 0.3s ease;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .article-card:hover{box-shadow:0 4px 12px rgba(0,0,0,0.1);transform:translateY(-2px);}
+  .category-badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:4px;border:1px solid var(--wire);color:var(--wire);margin-bottom:12px;width:fit-content;font-weight:500;}
+  .category-badge.news{border-color:var(--brick);color:var(--brick);}
+  .category-badge.tech{border-color:#2E5266;color:#2E5266;}
+  .category-badge.research{border-color:#666;color:#666;}
+  .category-badge.sports{border-color:#5C3D2E;color:#5C3D2E;}
+  .article-card h2{font-family:'Fraunces',serif;font-weight:700;font-size:20px;margin:0 0 12px;line-height:1.3;color:var(--ink);}
+  .article-meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mute);margin-bottom:12px;letter-spacing:.02em;}
+  .article-desc{font-family:'Fraunces',serif;font-size:14px;line-height:1.6;color:#3A3935;margin-bottom:16px;flex-grow:1;}
+  .read-more-btn{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.03em;text-transform:uppercase;color:var(--wire);border-bottom:2px solid var(--wire-dim);transition:all 0.2s;margin-top:auto;}
+  .read-more-btn:hover{color:var(--wire-dim);border-bottom-color:var(--wire);}
+  .footer{background:var(--ink);color:var(--paper-raised);text-align:center;padding:30px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;border-top:1px solid var(--rule);margin-top:60px;}
+  .footer a{color:var(--paper-raised);text-decoration:underline;}
+  @media (max-width:600px){.header h1{font-size:28px;} .container{padding:20px 16px;} .section-title{font-size:22px;} .articles-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<nav class="site-nav">
+  <a href="index.html">Home</a>
+  <a href="about.html">About</a>
+  <a href="privacy-policy.html">Privacy Policy</a>
+</nav>
+<header class="header">
+  <h1>THE SPEECH DISPATCH</h1>
+  <p class="tagline">Field reports & researched dispatches on news, research & analysis</p>
+</header>
+<main class="container">
+  <h2 class="section-title">Latest Articles</h2>
+  <div class="articles-grid">
+${cards}
+  </div>
+</main>
+<footer class="footer">
+  <p>The Speech Dispatch © 2026 · <a href="about.html">About</a> · <a href="privacy-policy.html">Privacy Policy</a></p>
+  <p style="font-size:10px;margin-top:10px;color:var(--mute);">Bringing you researched dispatches and field reports as they happen.</p>
+</footer>
+</body>
+</html>`;
+  }
+
+  function buildSitemapXml(allPosts){
+    const today = new Date().toISOString().split('T')[0];
+    const staticUrls = ['', 'about.html', 'privacy-policy.html'];
+    const urls = staticUrls.map(p => `  <url><loc>https://yogesh18457.github.io/${p}</loc><lastmod>${today}</lastmod></url>`);
+    allPosts.forEach(p => {
+      urls.push(`  <url><loc>https://yogesh18457.github.io/${p.page}</loc><lastmod>${new Date(p.date).toISOString().split('T')[0]}</lastmod></url>`);
+    });
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
+  }
+
+  // Publishes everything a new post needs: its data, its own page,
+  // the regenerated homepage, and the regenerated sitemap.
+  async function publishEverything(allPostsWithNew){
+    assignPageFilenames(allPostsWithNew);
+    const newPost = allPostsWithNew[allPostsWithNew.length - 1];
+
+    // 1. posts.json
+    const { sha: postsSha } = await githubGetRaw('posts.json');
+    await githubPutRaw('posts.json', JSON.stringify(allPostsWithNew, null, 2), postsSha, 'Update posts.json via admin panel');
+
+    // 2. this post's own page (new file, no sha)
+    await githubPutRaw(newPost.page, buildPostPageHtml(newPost), null, `Add page for "${newPost.title}"`);
+
+    // 3. regenerated homepage
+    const { sha: indexSha } = await githubGetRaw('index.html');
+    await githubPutRaw('index.html', buildIndexHtml(allPostsWithNew), indexSha, 'Regenerate homepage with all posts');
+
+    // 4. regenerated sitemap
+    const { sha: sitemapSha } = await githubGetRaw('sitemap.xml');
+    await githubPutRaw('sitemap.xml', buildSitemapXml(allPostsWithNew), sitemapSha, 'Regenerate sitemap with all posts');
+
+    return allPostsWithNew;
+  }
 
   let posts = [];
 
@@ -337,14 +594,20 @@
     `).join('');
     listEl.querySelectorAll('button').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if(!confirm('Remove this dispatch from the live site?')) return;
+        if(!confirm('Remove this dispatch from the live site? Its individual page will stay on GitHub but will no longer be linked from the homepage or sitemap.')) return;
         const gh = getGh();
         if(gh && gh.owner && gh.repo && gh.token){
           btn.textContent = 'Removing…';
           try{
-            const {sha, content} = await githubGetFile();
+            const {content} = await githubGetFile();
             const updated = content.filter(p => String(p.id) !== String(btn.dataset.id));
-            await githubPutFile(updated, sha);
+            assignPageFilenames(updated);
+            const { sha: postsSha } = await githubGetRaw('posts.json');
+            await githubPutRaw('posts.json', JSON.stringify(updated, null, 2), postsSha, 'Remove a dispatch via admin panel');
+            const { sha: indexSha } = await githubGetRaw('index.html');
+            await githubPutRaw('index.html', buildIndexHtml(updated), indexSha, 'Regenerate homepage after removal');
+            const { sha: sitemapSha } = await githubGetRaw('sitemap.xml');
+            await githubPutRaw('sitemap.xml', buildSitemapXml(updated), sitemapSha, 'Regenerate sitemap after removal');
             posts = updated;
             renderList();
           }catch(e){
@@ -411,11 +674,11 @@
       saveBtn.disabled = true;
       saveBtn.textContent = 'Publishing…';
       try{
-        const {sha, content: livePosts} = await githubGetFile();
+        const { content: livePosts } = await githubGetFile();
         livePosts.push(newPost);
-        await githubPutFile(livePosts, sha);
-        posts = livePosts;
-        successEl.textContent = 'Published! It should appear on your live site within about a minute.';
+        const finalPosts = await publishEverything(livePosts);
+        posts = finalPosts;
+        successEl.textContent = `Published! Homepage, sitemap, and its own page (${newPost.page}) are all live within about a minute.`;
         successEl.style.display = 'block';
         renderList();
         populateCategorySuggestions();
